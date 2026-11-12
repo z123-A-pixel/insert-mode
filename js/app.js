@@ -58,6 +58,8 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.2 2"/>',
   trash: '<path d="M4.8 6.6h14.4M9.6 6.6V4.4h4.8v2.2M6.6 6.6l.9 13.2h9l.9-13.2"/>',
   share: '<path d="M12 3.4v11.2M8.2 7.2 12 3.4l3.8 3.8"/><path d="M5.4 12.6v6.6a1.4 1.4 0 0 0 1.4 1.4h10.4a1.4 1.4 0 0 0 1.4-1.4v-6.6"/>',
+  upload: '<path d="M12 16.6V5.4M8.2 9.2 12 5.4l3.8 3.8"/><path d="M5.4 18.6h13.2"/>',
+  download: '<path d="M12 5.4v11.2M8.2 12.8l3.8 3.8 3.8-3.8"/><path d="M5.4 5.4h13.2"/>',
   shuffle: '<path d="M3.6 6.6h3.2l9.6 10.8h4M3.6 17.4h3.2l3.2-3.6M14.6 9.4l1.8-2.8h4"/><path d="M17.4 3.4 20.4 6.6l-3 3M17.4 14.4l3 3.2-3 3.2"/>',
   flag: '<path d="M6 3.4v17.2M6 4.6h11.4l-2.2 3.6 2.2 3.6H6z"/>',
   battery: '<rect x="2.8" y="7.6" width="16" height="8.8" rx="2.4"/><path d="M21.2 10.8v2.4"/><path d="M6.4 14.2V9.8M10 14.2V9.8M13.6 14.2V9.8"/>',
@@ -140,6 +142,67 @@ function toast(msg) {
   el.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+/* ---------------- GitHub Gist 云端同步 ---------------- */
+
+const GH_FILE = '嵌入式复习-备份.json';
+const GH_API = 'https://api.github.com/gists';
+
+async function ghRequest(path, options = {}) {
+  const token = S.cloudToken();
+  if (!token) throw new Error('还没填访问令牌');
+  const headers = {
+    Authorization: 'token ' + token,
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+  const res = await fetch(GH_API + path, { ...options, headers });
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try { const j = await res.json(); if (j && j.message) msg = j.message; } catch (e) { /* 忽略 */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function cloudPush() {
+  const body = { public: false, files: { [GH_FILE]: { content: S.exportJSON() } } };
+  let gistId = S.cloudGistId();
+  if (gistId) {
+    await ghRequest('/' + gistId, { method: 'PATCH', body: JSON.stringify(body) });
+  } else {
+    const gist = await ghRequest('', { method: 'POST', body: JSON.stringify(body) });
+    S.setCloudGistId(gist.id);
+  }
+  S.setCloudLastSync(Date.now());
+}
+
+async function cloudPull() {
+  let gistId = S.cloudGistId();
+  if (!gistId) {
+    const list = await ghRequest('?per_page=100', { method: 'GET' });
+    const hit = (list || []).find((g) => g.files && g.files[GH_FILE]);
+    if (!hit) throw new Error('云端没找到备份文件');
+    gistId = hit.id;
+    S.setCloudGistId(gistId);
+  }
+  const gist = await ghRequest('/' + gistId, { method: 'GET' });
+  const f = gist.files && gist.files[GH_FILE];
+  if (!f || !f.content) throw new Error('云端文件不存在');
+  S.importJSON(f.content);
+  S.setCloudLastSync(Date.now());
+}
+
+function cloudStatusTxt() {
+  const t = S.cloudToken();
+  if (!t) return '未连接：填好令牌后点「上传到云端」，会自动新建一份私密备份。';
+  const g = S.cloudGistId();
+  const last = S.cloudLastSync();
+  const when = last
+    ? new Date(last).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '还没同步过';
+  return `已填令牌${g ? ' · 关联备份 ' + g.slice(0, 8) : ''} · 上次同步 ${when}`;
 }
 
 /* ---------------- 首页 ---------------- */
@@ -361,7 +424,7 @@ function qaCard(list) {
 
 /* 自己写的学习笔记（纯文本，存本机） */
 function noteCard(card) {
-  const cur = S.note(card.id);
+  const cur = S.getNote(card.id);
   return `<div class="card note-card">
     <div class="row-between" style="margin-bottom:8px">
       <div class="card-label" style="margin-bottom:0">我的笔记</div>
@@ -644,6 +707,29 @@ function viewMe() {
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-label">云端同步（GitHub）</div>
+        <div class="tiny muted" style="line-height:1.6;margin-bottom:10px">
+          进度和笔记备份到你自己的私密 Gist，手机、电脑读写同一份。令牌只存在本机浏览器，不会随备份上传。
+        </div>
+        <input id="ghToken" class="gh-token" type="password" autocomplete="off" spellcheck="false" placeholder="GitHub 访问令牌（ghp_…）" value="${esc(S.cloudToken())}">
+        <div class="tiny muted" style="margin:8px 0 10px">${cloudStatusTxt()}</div>
+        <div class="stack-s">
+          <button class="btn block" data-act="cloud-push">${icon('upload', 17)} 上传到云端（本地覆盖云端）</button>
+          <button class="btn block" data-act="cloud-pull">${icon('download', 17)} 从云端拉取（覆盖本机）</button>
+          <button class="btn block" data-act="cloud-clear" style="color:var(--bad)">清除本机令牌与关联</button>
+        </div>
+        <details class="acc" style="margin-top:10px">
+          <summary>怎么生成令牌</summary>
+          <div class="acc-body prose">
+            <p>1. 电脑浏览器打开 github.com 并登录，右上角头像 → <b>Settings</b>。</p>
+            <p>2. 拉到最下面 <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Tokens (classic)</b>。</p>
+            <p>3. <b>Generate new token (classic)</b>，勾选 <b>gist</b> 权限，生成后复制 <code>ghp_…</code> 填到上面。</p>
+            <p>4. 手机和电脑填同一个令牌；第一次在一端上传后，另一端拉取会自动找到这份备份。</p>
+          </div>
+        </details>
+      </div>
+
       ${S.storageOK() ? '' : `<div class="card" style="background:var(--warn-soft);border-color:transparent;box-shadow:none">
         <div class="tiny" style="line-height:1.6">当前环境不允许网页保存数据，学习进度只在本次打开期间有效。</div>
       </div>`}
@@ -728,6 +814,11 @@ function route() {
       });
       ta.addEventListener('blur', () => S.setNote(cardId, ta.value));
     }
+  }
+
+  if (path === '/me') {
+    const tok = $('#ghToken');
+    if (tok) tok.addEventListener('blur', () => S.setCloudToken(tok.value));
   }
 
   if (path === '/search') {
@@ -858,6 +949,43 @@ document.addEventListener('change', (e) => {
       }
     };
     reader.readAsText(f);
+  }
+});
+
+/* 云端同步按钮（独立委托，避免阻塞主点击流程） */
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-act^="cloud-"]');
+  if (!el) return;
+  const act = el.dataset.act;
+
+  if (act === 'cloud-clear') {
+    if (confirm('清除本机保存的令牌和备份关联？云端的备份文件本身不会被删除。')) {
+      S.clearCloud();
+      toast('已清除本机令牌');
+      route();
+    }
+    return;
+  }
+
+  const tok = $('#ghToken');
+  if (tok) S.setCloudToken(tok.value);
+
+  try {
+    el.disabled = true;
+    if (act === 'cloud-push') {
+      await cloudPush();
+      toast('已上传到云端');
+    } else if (act === 'cloud-pull') {
+      if (!confirm('从云端拉取会覆盖本机当前的进度和笔记，确定继续？')) return;
+      await cloudPull();
+      applyTheme();
+      toast('已从云端恢复');
+    }
+    route();
+  } catch (err) {
+    toast('同步失败：' + err.message);
+  } finally {
+    el.disabled = false;
   }
 });
 

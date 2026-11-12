@@ -79,7 +79,7 @@ export const cardById = (id) => CARDS.find((c) => c.id === id);
 export const record = (id) => db.r[id] || null;
 
 /* 每张卡片自己写的学习笔记 */
-export const note = (id) => db.notes[id] || '';
+export const getNote = (id) => db.notes[id] || '';
 
 export function setNote(id, text) {
   const v = String(text == null ? '' : text).trim();
@@ -222,6 +222,16 @@ export function setTheme(t) { db.settings.theme = t; save(); }
 export function goal() { return db.settings.dailyGoal || 20; }
 export function setGoal(n) { db.settings.dailyGoal = Math.max(5, Math.min(200, n | 0)); save(); }
 
+/* 云端同步配置（令牌 / gist id / 上次同步时间，只存本机） */
+const gh = () => (db.settings.gh = db.settings.gh || {});
+export const cloudToken = () => gh().token || '';
+export const cloudGistId = () => gh().gistId || '';
+export const cloudLastSync = () => gh().lastSyncAt || 0;
+export function setCloudToken(t) { gh().token = String(t || '').trim(); save(); }
+export function setCloudGistId(id) { gh().gistId = String(id || '').trim(); save(); }
+export function setCloudLastSync(ts) { gh().lastSyncAt = ts || Date.now(); save(); }
+export function clearCloud() { db.settings.gh = { token: '', gistId: '', lastSyncAt: 0 }; save(); }
+
 export function resetAll() {
   db = defaults();
   const t = todayKey();
@@ -233,13 +243,25 @@ export function exportJSON() {
   return JSON.stringify({ app: 'embedded-review', at: Date.now(), data: db }, null, 2);
 }
 
-export function importJSON(text) {
-  const parsed = JSON.parse(text);
-  const data = parsed && parsed.data ? parsed.data : parsed;
+function applyData(data) {
   if (!data || typeof data !== 'object' || !data.r) throw new Error('文件格式不对');
   const base = defaults();
+  const localGh = (db && db.settings && db.settings.gh) || {};
+  const fileGh = (data.settings && data.settings.gh) || {};
   db = { ...base, ...data, notes: data.notes || {}, settings: { ...base.settings, ...(data.settings || {}) } };
+  /* 云端配置不随备份覆盖：保留本机令牌/关联，缺项再从备份里补 */
+  db.settings.gh = {
+    token: localGh.token || fileGh.token || '',
+    gistId: localGh.gistId || fileGh.gistId || '',
+    lastSyncAt: localGh.lastSyncAt || 0
+  };
   const t = todayKey();
   if (!db.days[t]) db.days[t] = { n: 0, ok: 0 };
   save();
+}
+
+export function importJSON(text) {
+  const parsed = JSON.parse(text);
+  const data = parsed && parsed.data ? parsed.data : parsed;
+  applyData(data);
 }
