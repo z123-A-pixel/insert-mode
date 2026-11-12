@@ -21,6 +21,7 @@ function defaults() {
     v: 2,
     r: {},          // cardId -> { lv, due, seen, wrong, last }
     days: {},       // 'YYYY-MM-DD' -> { n, ok }
+    notes: {},      // cardId -> 自己写的学习笔记（纯文本）
     settings: { theme: 'auto', dailyGoal: 20 },
     created: Date.now()
   };
@@ -37,6 +38,7 @@ function load() {
       ...parsed,
       r: parsed.r || {},
       days: parsed.days || {},
+      notes: parsed.notes || {},
       settings: { ...base.settings, ...(parsed.settings || {}) }
     };
   } catch (e) {
@@ -75,6 +77,19 @@ export function init(cards) {
 export const allCards = () => CARDS;
 export const cardById = (id) => CARDS.find((c) => c.id === id);
 export const record = (id) => db.r[id] || null;
+
+/* 每张卡片自己写的学习笔记 */
+export const note = (id) => db.notes[id] || '';
+
+export function setNote(id, text) {
+  const v = String(text == null ? '' : text).trim();
+  if (!v) {
+    delete db.notes[id];
+  } else {
+    db.notes[id] = v;
+  }
+  save();
+}
 
 export function dueList(now = Date.now()) {
   return CARDS.filter((c) => {
@@ -223,7 +238,7 @@ export function importJSON(text) {
   const data = parsed && parsed.data ? parsed.data : parsed;
   if (!data || typeof data !== 'object' || !data.r) throw new Error('文件格式不对');
   const base = defaults();
-  db = { ...base, ...data, settings: { ...base.settings, ...(data.settings || {}) } };
+  db = { ...base, ...data, notes: data.notes || {}, settings: { ...base.settings, ...(data.settings || {}) } };
   const t = todayKey();
   if (!db.days[t]) db.days[t] = { n: 0, ok: 0 };
   save();

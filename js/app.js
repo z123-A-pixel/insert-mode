@@ -359,6 +359,18 @@ function qaCard(list) {
   </div>`;
 }
 
+/* 自己写的学习笔记（纯文本，存本机） */
+function noteCard(card) {
+  const cur = S.note(card.id);
+  return `<div class="card note-card">
+    <div class="row-between" style="margin-bottom:8px">
+      <div class="card-label" style="margin-bottom:0">我的笔记</div>
+      <span class="tiny muted note-count">${cur.length}/200</span>
+    </div>
+    <textarea id="noteInput" rows="4" maxlength="200" placeholder="记点自己的要点、踩坑、没搞懂的地方，200 字以内，输入后自动保存到本机">${esc(cur)}</textarea>
+  </div>`;
+}
+
 function vizCard(card) {
   if (!card.visual) return '';
   return `<div class="viz" data-viz="${esc(card.visual)}">
@@ -416,6 +428,7 @@ function viewCard(id) {
     ${topbar(m.title)}
     <div class="stack">
       ${cardView(c)}
+      ${noteCard(c)}
       <div class="card flat tight">
         <div class="row-between">
           <span class="tiny muted">状态</span>
@@ -699,6 +712,23 @@ function route() {
   renderTabBar(path);
   mountAllViz(app);
   window.scrollTo(0, 0);
+
+  if (path === '/c') {
+    const ta = $('#noteInput');
+    if (ta) {
+      const cardId = location.hash.split('/')[2];
+      const count = ta.parentElement.querySelector('.note-count');
+      const updateCount = () => { if (count) count.textContent = ta.value.length + '/200'; };
+      updateCount();
+      let timer = null;
+      ta.addEventListener('input', () => {
+        updateCount();
+        clearTimeout(timer);
+        timer = setTimeout(() => S.setNote(cardId, ta.value), 300);
+      });
+      ta.addEventListener('blur', () => S.setNote(cardId, ta.value));
+    }
+  }
 
   if (path === '/search') {
     const input = $('#q');

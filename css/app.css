@@ -928,6 +928,28 @@ details.acc > summary::after {
 details.acc[open] > summary::after { transform: rotate(-90deg); }
 details.acc .acc-body { padding: 0 0 14px; font-size: 14px; line-height: 1.6; color: var(--label-2); }
 
+/* 我的笔记 */
+.note-card textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid var(--sep);
+  border-radius: var(--r-m);
+  background: var(--card-soft);
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--label);
+  outline: none;
+  -webkit-appearance: none;
+}
+.note-card textarea:focus {
+  border-color: var(--accent);
+  background: var(--card);
+}
+.note-card textarea::placeholder { color: var(--label-3); }
+.note-count { font-variant-numeric: tabular-nums; }
+
 @media (min-width: 560px) {
   .grid2 { gap: 14px; }
   h1.title { font-size: 38px; }
