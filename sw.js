@@ -1,5 +1,5 @@
 /* 离线缓存：外壳预缓存，数据模块首次加载后自动缓存 */
-const VERSION = 'emb-review-v6';
+const VERSION = 'emb-review-v7';
 const SHELL = [
   './',
   './index.html',
@@ -18,7 +18,7 @@ const SHELL = [
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'no-cache' })))).then(() => self.skipWaiting())
   );
 });
 
@@ -39,12 +39,12 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(req, { ignoreSearch: true }).then((hit) => {
       if (hit) {
-        fetch(req).then((res) => {
+        fetch(req, { cache: 'no-cache' }).then((res) => {
           if (res && res.ok) caches.open(VERSION).then((c) => c.put(req, res.clone()));
         }).catch(() => {});
         return hit;
       }
-      return fetch(req).then((res) => {
+      return fetch(req, { cache: 'no-cache' }).then((res) => {
         if (res && res.ok && res.type === 'basic') {
           const copy = res.clone();
           caches.open(VERSION).then((c) => c.put(req, copy));
