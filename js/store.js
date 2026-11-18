@@ -22,6 +22,7 @@ function defaults() {
     r: {},          // cardId -> { lv, due, seen, wrong, last }
     days: {},       // 'YYYY-MM-DD' -> { n, ok }
     notes: {},      // cardId -> 自己写的学习笔记（纯文本）
+    qa: {},         // cardId -> 面试问答 [{ id, q, a, t }]
     settings: { theme: 'auto', dailyGoal: 20 },
     created: Date.now()
   };
@@ -39,6 +40,7 @@ function load() {
       r: parsed.r || {},
       days: parsed.days || {},
       notes: parsed.notes || {},
+      qa: parsed.qa || {},
       settings: { ...base.settings, ...(parsed.settings || {}) }
     };
   } catch (e) {
@@ -88,6 +90,56 @@ export function setNote(id, text) {
   } else {
     db.notes[id] = v;
   }
+  save();
+}
+
+/* ---------------- 面试问答（截图识题 / 粘贴拆题） ---------------- */
+
+const qaList = (id) => (db.qa[id] = db.qa[id] || []);
+
+export const getQA = (id) => db.qa[id] || [];
+
+/* 生成一道题的短 id（不依赖外部库） */
+function qaId() {
+  return 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/* 追加多道题：去空白、与现有题干去重，返回实际新增条数 */
+export function addQuestions(id, questions) {
+  const list = qaList(id);
+  const exist = new Set(list.map((x) => x.q));
+  let added = 0;
+  for (const raw of questions || []) {
+    const q = String(raw == null ? '' : raw).trim();
+    if (!q || exist.has(q)) continue;
+    list.push({ id: qaId(), q, a: '', t: Date.now() });
+    exist.add(q);
+    added += 1;
+  }
+  if (added) save();
+  return added;
+}
+
+/* 手动改题干（OCR 识别错字时用） */
+export function setQaQuestion(id, qid, text) {
+  const item = qaList(id).find((x) => x.id === qid);
+  if (!item) return;
+  item.q = String(text == null ? '' : text).trim();
+  save();
+}
+
+/* 写答案（输入框自动保存） */
+export function setQaAnswer(id, qid, text) {
+  const item = qaList(id).find((x) => x.id === qid);
+  if (!item) return;
+  item.a = String(text == null ? '' : text);
+  save();
+}
+
+/* 删除一道题 */
+export function removeQaItem(id, qid) {
+  db.qa[id] = qaList(id).filter((x) => x.id !== qid);
+  if (!db.qa[id].length) delete db.qa[id];
   save();
 }
 
@@ -248,7 +300,7 @@ function applyData(data) {
   const base = defaults();
   const localGh = (db && db.settings && db.settings.gh) || {};
   const fileGh = (data.settings && data.settings.gh) || {};
-  db = { ...base, ...data, notes: data.notes || {}, settings: { ...base.settings, ...(data.settings || {}) } };
+  db = { ...base, ...data, notes: data.notes || {}, qa: data.qa || {}, settings: { ...base.settings, ...(data.settings || {}) } };
   /* 云端配置不随备份覆盖：保留本机令牌/关联，缺项再从备份里补 */
   db.settings.gh = {
     token: localGh.token || fileGh.token || '',
