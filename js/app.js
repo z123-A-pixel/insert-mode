@@ -446,7 +446,9 @@ const TESS_OPT = {
 
 /* 识别一张图片：建 worker → 识别 → 立刻释放，避免手机上占内存 */
 async function recognizeImage(file, onLog) {
-  const T = await import(TESS_ESM);
+  const mod = await import(TESS_ESM);
+  // 该 ESM 只有 default 导出（包了一层 CJS），createWorker 在 default 上
+  const T = mod.default || mod;
   const worker = await T.createWorker('chi_sim', 1, { logger: onLog, ...TESS_OPT });
   let text = '';
   try {
