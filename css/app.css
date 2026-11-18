@@ -988,20 +988,20 @@ details.acc .acc-body { padding: 0 0 14px; font-size: 14px; line-height: 1.6; co
   border: 1px solid var(--sep); border-radius: var(--r-m);
   background: var(--card-soft); padding: 11px 12px 12px;
 }
-.myqa-head { display: flex; align-items: center; gap: 9px; }
+.myqa-head { display: flex; align-items: flex-start; gap: 9px; }
 .myqa-no {
-  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  flex: 0 0 auto; width: 22px; height: 22px; margin-top: 3px; border-radius: 50%;
   background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
 .qa-qtext {
-  flex: 1 1 auto; min-width: 0; border: 0; background: transparent;
-  font-size: 14.5px; font-weight: 650; color: var(--label); outline: none;
-  padding: 4px 2px;
+  flex: 1 1 auto; min-width: 0; width: 100%; border: 0; background: transparent;
+  font-size: 14.5px; font-weight: 650; line-height: 1.5; color: var(--label); outline: none;
+  padding: 4px 2px; resize: none; overflow: hidden; display: block; min-height: 30px;
 }
 .qa-qtext:focus { border-bottom: 2px solid var(--accent); }
 .qa-del {
-  flex: 0 0 auto; border: 0; background: transparent; color: var(--label-3);
+  flex: 0 0 auto; margin-top: 2px; border: 0; background: transparent; color: var(--label-3);
   cursor: pointer; padding: 4px; border-radius: 9px;
 }
 .qa-del:active { transform: scale(0.92); color: #e5484d; }

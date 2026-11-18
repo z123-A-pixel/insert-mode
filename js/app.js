@@ -487,11 +487,17 @@ function splitQuestions(text) {
   return out;
 }
 
+/* 题干多行框自动撑高，保证长题目完整显示、不被截断 */
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 function qaItem(x, i) {
   return `<div class="myqa-item" data-qid="${esc(x.id)}">
     <div class="myqa-head">
       <span class="myqa-no">${i + 1}</span>
-      <input class="qa-qtext" value="${esc(x.q)}" placeholder="题目（识别错了可直接改）" autocomplete="off">
+      <textarea class="qa-qtext" rows="1" placeholder="题目（识别错了可直接改）">${esc(x.q)}</textarea>
       <button class="qa-del" data-act="qa-del" data-qid="${esc(x.id)}" aria-label="删除这道题">${icon('trash', 16)}</button>
     </div>
     <textarea class="qa-answer" rows="3" placeholder="自己写答案，输入后自动保存到本机">${esc(x.a)}</textarea>
@@ -880,6 +886,7 @@ function route() {
 
   const app = $('#app');
   app.innerHTML = html;
+  app.querySelectorAll('.qa-qtext').forEach(autoGrow);
   renderTabBar(path);
   mountAllViz(app);
   window.scrollTo(0, 0);
@@ -1137,6 +1144,7 @@ document.addEventListener('input', (e) => {
   const ans = e.target.closest('.qa-answer');
   const qt = e.target.closest('.qa-qtext');
   if (!ans && !qt) return;
+  if (qt) autoGrow(qt);
   const node = ans || qt;
   const box = node.closest('.myqa');
   const item = node.closest('.myqa-item');

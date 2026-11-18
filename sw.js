@@ -1,5 +1,5 @@
 /* 离线缓存：外壳预缓存，数据模块首次加载后自动缓存 */
-const VERSION = 'emb-review-v7';
+const VERSION = 'emb-review-v8';
 const SHELL = [
   './',
   './index.html',
