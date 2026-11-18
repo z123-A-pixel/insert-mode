@@ -1161,6 +1161,13 @@ applyTheme();
 route();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // 新缓存一旦接管，自动刷新一次，避免手动反复开关
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
