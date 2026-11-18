@@ -428,9 +428,91 @@ function noteCard(card) {
   return `<div class="card note-card">
     <div class="row-between" style="margin-bottom:8px">
       <div class="card-label" style="margin-bottom:0">我的笔记</div>
-      <span class="tiny muted note-count">${cur.length}/200</span>
+      <span class="tiny muted note-count">${cur.length}/300</span>
     </div>
-    <textarea id="noteInput" rows="4" maxlength="200" placeholder="记点自己的要点、踩坑、没搞懂的地方，200 字以内，输入后自动保存到本机">${esc(cur)}</textarea>
+    <textarea id="noteInput" rows="4" maxlength="300" placeholder="记点自己的要点、踩坑、没搞懂的地方，300 字以内，输入后自动保存到本机">${esc(cur)}</textarea>
+  </div>`;
+}
+
+/* ---------------- 面试问答（截图识题 / 粘贴拆题） ---------------- */
+
+/* Tesseract.js 全部走 jsDelivr，首次识别时按需加载，不进离线预缓存 */
+const TESS_ESM = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js';
+const TESS_OPT = {
+  workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+  corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core.wasm.js',
+  langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_sim@1.0.0/4.0.0'
+};
+
+/* 识别一张图片：建 worker → 识别 → 立刻释放，避免手机上占内存 */
+async function recognizeImage(file, onLog) {
+  const T = await import(TESS_ESM);
+  const worker = await T.createWorker('chi_sim', 1, { logger: onLog, ...TESS_OPT });
+  let text = '';
+  try {
+    const r = await worker.recognize(file);
+    text = r.data.text;
+  } finally {
+    await worker.terminate();
+  }
+  return text;
+}
+
+/* 把整段文本智能拆成一道一道题：优先按编号，无编号再按空行/问号 */
+function splitQuestions(text) {
+  const raw = String(text || '').replace(//g, '');
+  const blocks = [];
+  const numRe = /(?:^|\n)\s*[（(]?\s*\d{1,2}\s*[)）.、:：]\s*/g;
+  const hits = [...raw.matchAll(numRe)];
+  if (hits.length) {
+    for (let i = 0; i < hits.length; i++) {
+      const start = hits[i].index + hits[i][0].length;
+      const end = i + 1 < hits.length ? hits[i + 1].index : raw.length;
+      blocks.push(raw.slice(start, end));
+    }
+  } else {
+    const paras = raw.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+    blocks.push(...(paras.length > 1 ? paras : raw.split('\n').map((s) => s.trim()).filter(Boolean)));
+  }
+  const out = [];
+  for (let b of blocks) {
+    b = b.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!b) continue;
+    /* 分篇标题（短行、带“篇”、不含问号）不当作题目 */
+    if (!/[?？]/.test(b) && b.length <= 16 && /篇/.test(b)) continue;
+    out.push(b);
+  }
+  return out;
+}
+
+function qaItem(x, i) {
+  return `<div class="myqa-item" data-qid="${esc(x.id)}">
+    <div class="myqa-head">
+      <span class="myqa-no">${i + 1}</span>
+      <input class="qa-qtext" value="${esc(x.q)}" placeholder="题目（识别错了可直接改）" autocomplete="off">
+      <button class="qa-del" data-act="qa-del" data-qid="${esc(x.id)}" aria-label="删除这道题">${icon('trash', 16)}</button>
+    </div>
+    <textarea class="qa-answer" rows="3" placeholder="自己写答案，输入后自动保存到本机">${esc(x.a)}</textarea>
+  </div>`;
+}
+
+function myQaCard(card) {
+  const list = S.getQA(card.id);
+  return `<div class="card myqa" data-card="${esc(card.id)}">
+    <div class="card-label">我的面试问答</div>
+    <p class="tiny muted" style="margin:4px 0 10px">把面试题截图里的题目提取到这里，一道一道分开，自己填答案；只存在本机，并随备份一起导出/同步。</p>
+    <div class="myqa-actions">
+      <label class="btn ghost myqa-shot">${icon('upload', 16)}<span>截图识题</span>
+        <input type="file" accept="image/*" class="qa-file" hidden>
+      </label>
+      <button class="btn ghost" type="button" data-act="qa-paste">${icon('terminal', 16)}<span>粘贴文本</span></button>
+    </div>
+    <div class="qa-paste-panel" hidden>
+      <textarea class="qa-paste-text" rows="5" placeholder="把题目文字粘贴到这里（手机可在相册用「实况文本」复制），再点下面按钮自动拆成一道一道"></textarea>
+      <button class="btn solid" type="button" data-act="qa-split">拆成题目</button>
+    </div>
+    <div class="qa-prog tiny" hidden></div>
+    <div class="myqa-list">${list.map((x, i) => qaItem(x, i)).join('')}</div>
   </div>`;
 }
 
@@ -492,6 +574,7 @@ function viewCard(id) {
     <div class="stack">
       ${cardView(c)}
       ${noteCard(c)}
+      ${myQaCard(c)}
       <div class="card flat tight">
         <div class="row-between">
           <span class="tiny muted">状态</span>
@@ -524,7 +607,7 @@ function viewReview() {
   if (!queue.length) {
     return `<div class="page">
       <div class="page-head"><div class="eyebrow">复习</div><h1 class="title">今天没有待复习</h1></div>
-      ${emptyState('🌤', '都复习完了', '新卡可以随时开始，或者去模块里随便翻翻。', { act: 'start', label: '抽一批新卡' })}
+      ${emptyState('🌤', '都复习完了', '新卡可以随时开始，或者去「粘贴文本」之外的方式', { act: 'start', label: '抽一批新卡' })}
     </div>`;
   }
 
@@ -766,7 +849,7 @@ function mountAllViz(root) {
     const slot = box.querySelector('.viz-mount');
     if (!id || !slot) return;
     try {
-      const fn = mountVisual(id, slot);
+      const fn = mountVisual(id, 1, slot);
       if (typeof fn === 'function') cleanups.push(fn);
     } catch (e) {
       console.error('可视化渲染失败', id, e);
@@ -783,7 +866,7 @@ function route() {
   let html = '';
   let path = '/';
 
-  if (!parts.length) { html = viewHome(); path = '/'; }
+  if (!parts.length) { html = viewHome(); html = viewHome(); path = '/'; }
   else if (parts[0] === 'm' && parts[1]) { html = viewModule(parts[1]); path = '/m'; }
   else if (parts[0] === 'c' && parts[1]) { html = viewCard(parts[1]); path = '/c'; }
   else if (parts[0] === 'modules') { html = viewModules(); path = '/modules'; }
@@ -804,7 +887,7 @@ function route() {
     if (ta) {
       const cardId = location.hash.split('/')[2];
       const count = ta.parentElement.querySelector('.note-count');
-      const updateCount = () => { if (count) count.textContent = ta.value.length + '/200'; };
+      const updateCount = () => { if (count) count.textContent = ta.value.length + '/300'; };
       updateCount();
       let timer = null;
       ta.addEventListener('input', () => {
@@ -871,7 +954,7 @@ document.addEventListener('click', (e) => {
   if (act === 'wrong') return go('#/wrong');
   if (act === 'search') return go('#/search');
   if (act === 'mod') return go('#/m/' + el.dataset.id);
-  if (act === 'card') return go('#/c/' + el.dataset.id);
+  if (act === 'card') return go('#/c/' + el.id);
   if (act === 'exit') { session = null; navStack = []; return jump('#/'); }
 
   if (act === 'grade') {
@@ -923,7 +1006,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (act === 'reset') {
-    if (confirm('清空所有学习进度？此操作不可撤销。')) {
+    if (confirm('清空所有进度？此操作不可撤销。')) {
       S.resetAll();
       session = null;
       toast('已清空');
@@ -976,7 +1059,7 @@ document.addEventListener('click', async (e) => {
       await cloudPush();
       toast('已上传到云端');
     } else if (act === 'cloud-pull') {
-      if (!confirm('从云端拉取会覆盖本机当前的进度和笔记，确定继续？')) return;
+      if (!confirm('从云端拉取会覆盖本机，确定继续？')) return;
       await cloudPull();
       applyTheme();
       toast('已从云端恢复');
@@ -987,6 +1070,79 @@ document.addEventListener('click', async (e) => {
   } finally {
     el.disabled = false;
   }
+});
+
+/* ---------------- 面试问答事件 ---------------- */
+
+/* 选截图 → OCR → 拆题 → 入库重渲染 */
+document.addEventListener('change', async (e) => {
+  const input = e.target.closest('.qa-file');
+  if (!input) return;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const box = input.closest('.myqa');
+  const prog = box.querySelector('.qa-prog');
+  prog.hidden = false;
+  prog.textContent = '正在加载识别引擎（首次约 20MB，请稍等）…';
+  try {
+    const text = await recognizeImage(file, (m) => {
+      if (m.status === 'recognizing text') prog.textContent = `识别中 ${Math.round((m.progress || 0) * 100)}%`;
+    });
+    const qs = splitQuestions(text);
+    if (!qs.length) throw new Error('没识别出题目，可改用「粘贴文本」');
+    const n = S.addQuestions(box.dataset.card, qs);
+    toast(`识别到 ${qs.length} 题，新增 ${n} 题`);
+    route();
+  } catch (err) {
+    prog.textContent = '识别失败：' + err.message;
+    input.value = '';
+  }
+});
+
+/* 粘贴面板开关 / 拆题 / 删除 */
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act^="qa-"]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const box = el.closest('.myqa');
+  if (!box) return;
+  const cardId = box.dataset.card;
+
+  if (act === 'qa-paste') {
+    const panel = box.querySelector('.qa-paste-panel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) panel.querySelector('.qa-paste-text').focus();
+    return;
+  }
+  if (act === 'qa-split') {
+    const ta = box.querySelector('.qa-paste-text');
+    const qs = splitQuestions(ta.value);
+    if (!qs.length) { toast('没拆出题目，检查下文本'); return; }
+    const n = S.addQuestions(cardId, qs);
+    toast(`拆出 ${qs.length} 题，新增 ${n} 题`);
+    route();
+    return;
+  }
+  if (act === 'qa-del') {
+    S.removeQaItem(cardId, el.dataset.qid);
+    route();
+  }
+});
+
+/* 题干/答案自动保存（防抖，事件委托） */
+let qaInputTimer = null;
+document.addEventListener('input', (e) => {
+  const ans = e.target.closest('.qa-answer');
+  const qt = e.target.closest('.qa-qtext');
+  if (!ans && !qt) return;
+  const node = ans || qt;
+  const box = node.closest('.myqa');
+  const item = node.closest('.myqa-item');
+  clearTimeout(qaInputTimer);
+  qaInputTimer = setTimeout(() => {
+    if (ans) S.setQaAnswer(box.dataset.card, item.dataset.qid, ans.value);
+    else S.setQaQuestion(box.dataset.card, item.dataset.qid, qt.value);
+  }, 350);
 });
 
 /* ---------------- 启动 ---------------- */
