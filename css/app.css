@@ -165,7 +165,7 @@ a { color: var(--accent); text-decoration: none; }
   gap: 4px;
   margin: -6px -6px 4px;
   padding: 6px;
-  backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180px) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   background: var(--glass);
   border-radius: 14px;
@@ -304,6 +304,7 @@ h2.section {
   position: relative;
   z-index: 1;
 }
+
 .mod-icon svg { width: 21px; height: 21px; }
 
 .mod-name {
@@ -385,7 +386,7 @@ h2.section {
   background: rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(10px);
   cursor: pointer;
-  transition: transform 0.2s var(--ease), background 0.2s;
+  transition: transform 0.2s var(--ease), background: 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
 .btn-primary:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.3); }
@@ -401,7 +402,7 @@ h2.section {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.18s var(--ease), background 0.18s;
+  transition: transform 0.18s var(--ease), background: 0.18s;
   -webkit-tap-highlight-color: transparent;
 }
 .btn:active { transform: scale(0.97); }
@@ -731,7 +732,7 @@ h2.section {
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.16s var(--ease);
+  transition: transform 0.16px var(--ease);
   line-height: 1.25;
 }
 .gradebar button:active { transform: scale(0.96); }
@@ -962,6 +963,58 @@ details.acc .acc-body { padding: 0 0 14px; font-size: 14px; line-height: 1.6; co
 }
 .gh-token:focus { border-color: var(--accent); background: var(--card); }
 .gh-token::placeholder { color: var(--label-3); }
+
+/* 我的面试问答 */
+.myqa-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.myqa-actions .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; font-size: 14px; font-weight: 600;
+  border: 1px solid var(--sep); border-radius: var(--r-m);
+  color: var(--label-2); cursor: pointer;
+}
+.myqa-actions .btn:active { transform: scale(0.97); }
+.myqa-shot { position: relative; }
+.qa-paste-panel { margin-top: 12px; }
+.qa-paste-panel textarea {
+  width: 100%; resize: vertical; margin-bottom: 10px;
+  border: 1px solid var(--sep); border-radius: var(--r-m);
+  background: var(--card-soft); padding: 10px 12px;
+  font-size: 14.5px; line-height: 1.6; color: var(--label); outline: none;
+  -webkit-appearance: none;
+}
+.qa-paste-panel textarea:focus { border-color: var(--accent); background: var(--card); }
+.qa-prog { margin-top: 12px; color: var(--accent); font-weight: 600; }
+.myqa-list { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.myqa-item {
+  border: 1px solid var(--sep); border-radius: var(--r-m);
+  background: var(--card-soft); padding: 11px 12px 12px;
+}
+.myqa-head { display: flex; align-items: center; gap: 9px; }
+.myqa-no {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.qa-qtext {
+  flex: 1 1 auto; min-width: 0; border: 0; background: transparent;
+  font-size: 14.5px; font-weight: 650; color: var(--label); outline: none;
+  padding: 4px 2px;
+}
+.qa-qtext:focus { border-bottom: 2px solid var(--accent); }
+.qa-del {
+  flex: 0 0 auto; border: 0; background: transparent; color: var(--label-3);
+  cursor: pointer; padding: 4px; border-radius: 9px;
+}
+.qa-del:active { transform: scale(0.92); color: #e5484d; }
+.qa-answer {
+  width: 100%; margin-top: 9px; resize: vertical;
+  border: 1px solid var(--sep); border-radius: var(--r-m);
+  background: var(--card); padding: 9px 11px;
+  font-size: 14px; line-height: 1.6; color: var(--label-2); outline: none;
+  -webkit-appearance: none;
+}
+.qa-answer:focus { border-color: var(--accent); }
+.qa-answer::placeholder, .qa-qtext::placeholder { color: var(--label-3); }
 
 @media (min-width: 560px) {
   .grid2 { gap: 14px; }
