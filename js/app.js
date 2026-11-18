@@ -460,7 +460,7 @@ async function recognizeImage(file, onLog) {
 
 /* 把整段文本智能拆成一道一道题：优先按编号，无编号再按空行/问号 */
 function splitQuestions(text) {
-  const raw = String(text || '').replace(//g, '');
+  const raw = String(text || '').replace(/\r/g, '');
   const blocks = [];
   const numRe = /(?:^|\n)\s*[（(]?\s*\d{1,2}\s*[)）.、:：]\s*/g;
   const hits = [...raw.matchAll(numRe)];
@@ -607,7 +607,7 @@ function viewReview() {
   if (!queue.length) {
     return `<div class="page">
       <div class="page-head"><div class="eyebrow">复习</div><h1 class="title">今天没有待复习</h1></div>
-      ${emptyState('🌤', '都复习完了', '新卡可以随时开始，或者去「粘贴文本」之外的方式', { act: 'start', label: '抽一批新卡' })}
+      ${emptyState('🌤', '都复习完了', '新卡可以随时开始，或者去模块里随便翻翻。', { act: 'start', label: '抽一批新卡' })}
     </div>`;
   }
 
@@ -849,7 +849,7 @@ function mountAllViz(root) {
     const slot = box.querySelector('.viz-mount');
     if (!id || !slot) return;
     try {
-      const fn = mountVisual(id, 1, slot);
+      const fn = mountVisual(id, slot);
       if (typeof fn === 'function') cleanups.push(fn);
     } catch (e) {
       console.error('可视化渲染失败', id, e);
@@ -866,7 +866,7 @@ function route() {
   let html = '';
   let path = '/';
 
-  if (!parts.length) { html = viewHome(); html = viewHome(); path = '/'; }
+  if (!parts.length) { html = viewHome(); path = '/'; }
   else if (parts[0] === 'm' && parts[1]) { html = viewModule(parts[1]); path = '/m'; }
   else if (parts[0] === 'c' && parts[1]) { html = viewCard(parts[1]); path = '/c'; }
   else if (parts[0] === 'modules') { html = viewModules(); path = '/modules'; }
@@ -954,7 +954,7 @@ document.addEventListener('click', (e) => {
   if (act === 'wrong') return go('#/wrong');
   if (act === 'search') return go('#/search');
   if (act === 'mod') return go('#/m/' + el.dataset.id);
-  if (act === 'card') return go('#/c/' + el.id);
+  if (act === 'card') return go('#/c/' + el.dataset.id);
   if (act === 'exit') { session = null; navStack = []; return jump('#/'); }
 
   if (act === 'grade') {
@@ -1006,7 +1006,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (act === 'reset') {
-    if (confirm('清空所有进度？此操作不可撤销。')) {
+    if (confirm('清空所有学习进度？此操作不可撤销。')) {
       S.resetAll();
       session = null;
       toast('已清空');
@@ -1059,7 +1059,7 @@ document.addEventListener('click', async (e) => {
       await cloudPush();
       toast('已上传到云端');
     } else if (act === 'cloud-pull') {
-      if (!confirm('从云端拉取会覆盖本机，确定继续？')) return;
+      if (!confirm('从云端拉取会覆盖本机当前的进度和笔记，确定继续？')) return;
       await cloudPull();
       applyTheme();
       toast('已从云端恢复');
